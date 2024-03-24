@@ -1,0 +1,69 @@
+version: '2'
+networks:
+  elklab-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.19.0.0/16"
+
+services:
+    elasticsearch:
+        image: elasticsearch:8.8.1
+        ports:
+            - "9200:9200"
+            - "9300:9300"
+        volumes:
+            - ./data/elasticsearch:/usr/share/elasticsearch/data
+        environment:
+            - xpack.security.enabled=false
+            - node.name=elasticsearch
+            - discovery.seed_hosts=elasticsearch
+            - cluster.initial_master_nodes=elasticsearch
+        networks:
+            elklab-net:
+                ipv4_address: 172.19.0.2
+
+    mylogstash:
+        image: logstash:8.8.1
+        volumes:
+            - ./config-dir:/usr/share/logstash/mylogstash/config-dir:rw
+            - ./data/logstash:/usr/share/logstash/mylogstash/data:rw
+        ports:
+            - "4002:4002/tcp"
+            - "4003:4003/udp"
+            - "514:514/udp"
+            - "8080:8080/tcp"
+        tty: true
+        command: ["bash"]
+        links:
+            - elasticsearch
+        networks:
+            elklab-net:
+                ipv4_address: 172.19.0.3
+
+    kibana:
+        image: kibana:8.8.1
+        ports:
+            - "5601:5601"
+        links:
+            - elasticsearch
+        networks:
+            elklab-net:
+                ipv4_address: 172.19.0.4
+
+    grafana:
+        image: grafana/grafana:8.5.15
+        ports:
+            - "3000:3000"
+        environment:
+            - GF_SECURITY_ADMIN_PASSWORD=root
+            - GF_PATHS_DATA=/var/lib/grafana
+            - GF_PATHS_PLUGINS=/var/lib/grafana/plugins
+        user: "root:root"
+        volumes:
+            - ./data/grafana:/var/lib/grafana
+        networks:
+            elklab-net:
+                ipv4_address: 172.19.0.5
+
